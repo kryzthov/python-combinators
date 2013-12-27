@@ -181,8 +181,25 @@ class TestParser(unittest.TestCase):
         .Parse(parser.Input('0x11110000 is a number')))
     self.assertTrue(result.success)
     self.assertEqual('0x11110000', result.match)
-    self.assertEqual(0xf0, result.value)
+    self.assertEqual(0x11110000, result.value)
     self.assertEqual(' is a number', result.next.text)
+
+  def testSingleQuoteStringLiteral(self):
+    result = (parser.SingleQuoteStringLiteral()
+        .Parse(parser.Input("'this string' is single-quoted")))
+    self.assertTrue(result.success)
+    self.assertEqual("'this string'", result.match)
+    self.assertEqual('this string', result.value)
+    self.assertEqual(' is single-quoted', result.next.text)
+
+  def testDoubleQuoteStringLiteral(self):
+    result = (parser.DoubleQuoteStringLiteral()
+        .Parse(parser.Input('"this string" is double-quoted')))
+    self.assertTrue(result.success)
+    self.assertEqual('"this string"', result.match)
+    self.assertEqual('this string', result.value)
+    self.assertEqual(' is double-quoted', result.next.text)
+
 
 
 if __name__ == '__main__':

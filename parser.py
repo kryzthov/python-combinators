@@ -265,7 +265,7 @@ def GetRangeForBase(base):
     return '[0-9a-%sA-%s]' % (lower, upper)
 
 
-class Integer(Regex):
+class Integer(ParserBase):
   """Parses an integer of a given base."""
 
   def __init__(self, base=10, prefix=''):
@@ -298,3 +298,60 @@ AllInteger = Branch(
 )
 
 
+def Unescape(string):
+  unescaped = ''
+  while len(string) > 0:
+    char = string[0]
+    string = string[1:]
+    if char != '\\':
+      unescaped += char
+    else:
+      char = string[0]
+      string = string[1:]
+      if char == 'u':
+        unescaped += chr(int(string[:4], 16))
+      elif char == 'n':
+        unescaped += '\n'
+      elif char == 'r':
+        unescaped += '\r'
+      elif char == 't':
+        unescaped += '\t'
+      else:
+        unescaped += char
+  return unescaped
+
+
+class SingleQuoteStringLiteral(ParserBase):
+  """Matches a single-quote string literal."""
+  def __init__(self):
+    self._regex_parser = Regex(r"""'(?:[^'\\]|(?:\\u\d{4})|(?:\\[^u]))*'""")
+
+  def Parse(self, input):
+    result = self._regex_parser.Parse(input)
+    if result.success:
+      literal = result.match[1:-1]
+      literal = Unescape(literal)
+      result = Success(
+          match=result.match,
+          value=literal,
+          next=result.next,
+      )
+    return result
+
+
+class DoubleQuoteStringLiteral(ParserBase):
+  """Matches a double-quote string literal."""
+  def __init__(self):
+    self._regex_parser = Regex(r'''"(?:[^"\\]|(?:\\u\d{4})|(?:\\[^u]))*"''')
+
+  def Parse(self, input):
+    result = self._regex_parser.Parse(input)
+    if result.success:
+      literal = result.match[1:-1]
+      literal = Unescape(literal)
+      result = Success(
+          match=result.match,
+          value=literal,
+          next=result.next,
+      )
+    return result
