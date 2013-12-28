@@ -200,6 +200,14 @@ class TestParser(unittest.TestCase):
     self.assertEqual('this string', result.value)
     self.assertEqual(' is double-quoted', result.next.text)
 
+  def testTripeQuoteStringLiteral(self):
+    result = (parser.TripleQuoteStringLiteral()
+        .Parse(parser.Input('"""this "\n string""" is triple """ quoted')))
+    self.assertTrue(result.success)
+    self.assertEqual('"""this "\n string"""', result.match)
+    self.assertEqual('this "\n string', result.value)
+    self.assertEqual(' is triple """ quoted', result.next.text)
+
 
 
 if __name__ == '__main__':

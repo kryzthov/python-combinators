@@ -324,7 +324,7 @@ def Unescape(string):
 class SingleQuoteStringLiteral(ParserBase):
   """Matches a single-quote string literal."""
   def __init__(self):
-    self._regex_parser = Regex(r"""'(?:[^'\\]|(?:\\u\d{4})|(?:\\[^u]))*'""")
+    self._regex_parser = Regex(r"""'(?:[^'\\]|(?:\\u[0-9a-fA-F]{4})|(?:\\[^u]))*'""")
 
   def Parse(self, input):
     result = self._regex_parser.Parse(input)
@@ -342,7 +342,7 @@ class SingleQuoteStringLiteral(ParserBase):
 class DoubleQuoteStringLiteral(ParserBase):
   """Matches a double-quote string literal."""
   def __init__(self):
-    self._regex_parser = Regex(r'''"(?:[^"\\]|(?:\\u\d{4})|(?:\\[^u]))*"''')
+    self._regex_parser = Regex(r'''"(?:[^"\\]|(?:\\u[0-9a-fA-F]{4})|(?:\\[^u]))*"''')
 
   def Parse(self, input):
     result = self._regex_parser.Parse(input)
@@ -355,3 +355,28 @@ class DoubleQuoteStringLiteral(ParserBase):
           next=result.next,
       )
     return result
+
+
+class TripleQuoteStringLiteral(ParserBase):
+  """Matches a triple-quote string literal."""
+  def __init__(self):
+    self._regex_parser = Regex(r'"""(?:[^\\]|(?:\\u[0-9a-fA-F]{4})|(?:\\[^u]))*?"""')
+
+  def Parse(self, input):
+    result = self._regex_parser.Parse(input)
+    if result.success:
+      literal = result.match[3:-3]
+      literal = Unescape(literal)
+      result = Success(
+          match=result.match,
+          value=literal,
+          next=result.next,
+      )
+    return result
+
+
+AllString = Branch(
+    TripleQuoteStringLiteral,
+    DoubleQuoteStringLiteral,
+    SingleQuoteStringLiteral,
+)
