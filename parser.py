@@ -2,12 +2,34 @@
 # -*- coding: utf-8 -*-
 # -*- mode: python -*-
 
+"""Library of parser combinators."""
+
 import abc
+import logging
 import re
+
+from base import base
+
+LogLevel = base.LogLevel
+
+
+class Error(Exception):
+  """Errors raised in this module."""
+  pass
 
 
 class Input(object):
+  """Wraps an input stream of characters to parse."""
+
   def __init__(self, text, pos=0, line=1, column=0):
+    """Initializes a new text input object.
+
+    Args:
+      text: Full text this input reads from.
+      pos: Character position to read from, in text.
+      line: Known line number the specified position corresponds to.
+      column: Known column number the specified position corresponds to.
+    """
     self._text = text
     self._pos = pos
     self._line = line
@@ -15,21 +37,30 @@ class Input(object):
 
   @property
   def text(self):
+    """Returns: the content of this input, as a string."""
     return self._text[self._pos:]
 
   @property
   def pos(self):
+    """Returns: the absolute character position this input is at (0-based)."""
     return self._pos
 
   @property
   def line(self):
+    """Returns: the line number this input is at (1-based)."""
     return self._line
 
   @property
   def column(self):
+    """Returns: the column number this input is at (0-based)."""
     return self._column
 
   def NextChar(self):
+    """Advances this input to the next character.
+
+    Returns:
+      The input moved to the next character.
+    """
     if len(self._text) == 0:
       return self
     if self.text[0] == '\n':
@@ -41,16 +72,38 @@ class Input(object):
     return Input(text=self._text, pos=self._pos + 1, line=line, column=column)
 
   def Next(self, nchars):
+    """Advances this input to the next nchars characters.
+
+    Args:
+      nchars: Number of characters to move forward to.
+    Returns:
+      The input moved nchars characters forward.
+    """
     current = self
     for _ in range(nchars):
       current = current.NextChar()
     return current
+
+  def __str__(self):
+    return 'Input(line=%d, column=%d, pos=%d, len=%d)' \
+        % (self.line, self.column, self.pos, len(self))
+
+  def __repr__(self):
+    return 'Input(line=%d, column=%d, pos=%d, len=%d, text=%r)' \
+        % (self.line, self.column, self.pos, len(self),
+           base.Truncate(self.text, 40))
+
+  def __len__(self):
+    """Returns: the number of characters in this input."""
+    return len(self.text)
 
 
 # ------------------------------------------------------------------------------
 
 
 class ParsingResult(object):
+  """Base class for the result of a parser."""
+
   def __init__(self, success, next, value=None, match=None, message=None):
     self._success = success
     self._next = next
@@ -102,11 +155,16 @@ class Failure(ParsingResult):
         message=message,
     )
 
+  def __str__(self):
+    return 'Failure(message=%r, next=%r)' % (self.message, self.next)
+
 
 # ------------------------------------------------------------------------------
 
 
 class ParserBase(object, metaclass=abc.ABCMeta):
+  """Base class for a parser."""
+
   def __init__(self):
     pass
 
@@ -123,13 +181,14 @@ class ParserBase(object, metaclass=abc.ABCMeta):
 
 
 class Str(ParserBase):
-  """Matches an exact string."""
+  """Matches an exact string. No leading space is skipped."""
 
   def __init__(self, str):
     self._str = str
 
   def Parse(self, input):
     if input.text.startswith(self._str):
+      logging.log(LogLevel.DEBUG_VERBOSE, 'Matched Str(%r)', self._str)
       return Success(
           match=self._str,
           value=self._str,
@@ -140,9 +199,14 @@ class Str(ParserBase):
 
 
 class Regex(ParserBase):
-  """Matches a regex."""
+  """Matches a regex. No leading soace is skipped."""
 
   def __init__(self, regex):
+    """Creates a parser to match a regular expression.
+
+    Args:
+      regex: Regex to match.
+    """
     self._regex = regex
     self._pattern = re.compile(regex)
 
@@ -152,11 +216,60 @@ class Regex(ParserBase):
       return Failure(next=input)
     else:
       matched_str = match.group(0)
+      logging.log(
+          LogLevel.DEBUG_VERBOSE,
+          'Matched Regex(%r) = %r', self._pattern.pattern, matched_str)
       return Success(
           match=matched_str,
           value=matched_str,
           next=input.Next(len(matched_str)),
       )
+
+
+# ------------------------------------------------------------------------------
+
+
+# Matches spaces, new lines, tabs:
+RE_SPACES = re.compile(r"""\s+""")
+
+# Matches spaces a C-style comments (end-of-line and multi-line):
+RE_CSTYLE_COMMENTS = re.compile(r"""(\s|//.*|(?m)/\*(\*(?!/)|[^*])*\*/)+""")
+
+
+class Token(ParserBase):
+  """Matches a token, skipping leading spaces if any."""
+
+  def __init__(self, parser, spaces=RE_SPACES):
+    """Creates a new parser for a token.
+
+    Args:
+      parser: Parser for the token to match.
+      spaces: Regex matcher for the leading spaces to skip.
+          Defaults to normal space characters (includes tabs, new lines, etc).
+    """
+    self._parser = parser
+    self._spaces = spaces
+    self._space_parser = Regex(self._spaces)
+
+  def Parse(self, input):
+    # Consume leading spaces, if any:
+    result = self._space_parser.Parse(input)
+
+    # Apply token parser:
+    return self._parser.Parse(result.next)
+
+
+def TokenStr(str, spaces=RE_SPACES):
+  """Matches a token, skipping leading spaces if any."""
+  return Token(Str(str), spaces=spaces)
+
+
+def TokenRegex(regex, spaces=RE_SPACES):
+  """Matches a token specified as a regex, skipped leading spaces if any."""
+  return Token(Regex(regex), spaces=spaces)
+
+
+# ------------------------------------------------------------------------------
 
 
 class Opt(ParserBase):
@@ -211,6 +324,11 @@ class Rep(ParserBase):
       return Success(next=current_input, match=full_match, value=values)
 
 
+def Rep1(parser, nmax=None):
+  """Repeats a construction at least once."""
+  return Rep(parser=parser, nmin=1, nmax=nmax)
+
+
 class Seq(ParserBase):
   """Matches a sequence of constructions."""
 
@@ -222,6 +340,7 @@ class Seq(ParserBase):
     current_input = input
     values = []
     for parser in self._parsers:
+      assert hasattr(parser, 'Parse'), repr(parser)
       result = parser.Parse(current_input)
       if result.success:
         values.append(result.value)
@@ -250,12 +369,67 @@ class Branch(ParserBase):
 # ------------------------------------------------------------------------------
 
 
-def Identifier():
-  """Parses a C-style identifier."""
-  return Regex(r'[A-Za-z_][A-Za-z0-9]*')
+class _Map(ParserBase):
+  def __init__(self, parser, mapfn):
+    self._parser = parser
+    self._mapfn = mapfn
+
+  def Parse(self, input):
+    result = self._parser.Parse(input)
+    if result.success:
+      result = Success(
+          match=result.match,
+          next=result.next,
+          value=self._mapfn(result.value),
+      )
+    return result
+
+
+def Map(parser, mapfn):
+  """Rewrites a successful result's value.
+
+  Args:
+    parser: Parser whose successful result should be mapped.
+    mapfn: Function that rewrites the value.
+  Returns:
+    The original parser wrapped to map the result value.
+  """
+  return _Map(parser, mapfn)
+
+
+ParserBase.Map = Map
+
+
+class Ref(ParserBase):
+  """Parser reference. Allows forward declaration of parsers."""
+
+  def __init__(self):
+    self._ref = None
+
+  def Bind(self, parser):
+    assert (self._ref is None), 'Reference already set.'
+    self._ref = parser
+
+  def Parse(self, input):
+    assert (self._ref is not None), ('Unbound parser reference: %r.' % (self,))
+    return self._ref.Parse(input)
+
+
+# ------------------------------------------------------------------------------
+
+
+"""Parses a C-style identifier."""
+Identifier = Regex(r'[A-Za-z_][A-Za-z0-9_]*')
 
 
 def GetRangeForBase(base):
+  """Returns a regex range of characters for a digit in a given base.
+
+  Args:
+    Base for the digits to recognize.
+  Returns:
+    The regex range for the specified digit base.
+  """
   assert (base > 1)
   if base <= 10:
     return '[0-%s]' % (base - 1)
@@ -323,8 +497,10 @@ def Unescape(string):
 
 class SingleQuoteStringLiteral(ParserBase):
   """Matches a single-quote string literal."""
+
   def __init__(self):
-    self._regex_parser = Regex(r"""'(?:[^'\\]|(?:\\u[0-9a-fA-F]{4})|(?:\\[^u]))*'""")
+    self._regex_parser = \
+        Regex(r"""'(?:[^'\\]|(?:\\u[0-9a-fA-F]{4})|(?:\\[^u]))*'""")
 
   def Parse(self, input):
     result = self._regex_parser.Parse(input)
@@ -341,8 +517,10 @@ class SingleQuoteStringLiteral(ParserBase):
 
 class DoubleQuoteStringLiteral(ParserBase):
   """Matches a double-quote string literal."""
+
   def __init__(self):
-    self._regex_parser = Regex(r'''"(?:[^"\\]|(?:\\u[0-9a-fA-F]{4})|(?:\\[^u]))*"''')
+    self._regex_parser = \
+        Regex(r'''"(?:[^"\\]|(?:\\u[0-9a-fA-F]{4})|(?:\\[^u]))*"''')
 
   def Parse(self, input):
     result = self._regex_parser.Parse(input)
@@ -359,8 +537,10 @@ class DoubleQuoteStringLiteral(ParserBase):
 
 class TripleQuoteStringLiteral(ParserBase):
   """Matches a triple-quote string literal."""
+
   def __init__(self):
-    self._regex_parser = Regex(r'"""(?:[^\\]|(?:\\u[0-9a-fA-F]{4})|(?:\\[^u]))*?"""')
+    self._regex_parser = \
+        Regex(r'"""(?:[^\\]|(?:\\u[0-9a-fA-F]{4})|(?:\\[^u]))*?"""')
 
   def Parse(self, input):
     result = self._regex_parser.Parse(input)
@@ -375,6 +555,7 @@ class TripleQuoteStringLiteral(ParserBase):
     return result
 
 
+# Matches any string literal:
 AllString = Branch(
     TripleQuoteStringLiteral,
     DoubleQuoteStringLiteral,
