@@ -230,7 +230,7 @@ class Regex(ParserBase):
 
 
 # Matches spaces, new lines, tabs:
-RE_SPACES = re.compile(r"""\s+""")
+RE_SPACES = re.compile(r'\s+')
 
 # Matches spaces a C-style comments (end-of-line and multi-line):
 RE_CSTYLE_COMMENTS = re.compile(r"""(\s|//.*|(?m)/\*(\*(?!/)|[^*])*\*/)+""")
@@ -470,6 +470,24 @@ AllInteger = Branch(
     BinaryInteger,
     DecimalInteger,
 )
+
+
+class Float(ParserBase):
+  def __init__(self):
+    self._parser = Regex(r'[0-9]*\.?[0-9]*([eE][+-]?[0-9]+)?')
+
+  def Parse(self, input):
+    result = self._parser.Parse(input)
+    if result.success:
+      try:
+        result = Success(
+            match=result.match,
+            value=float(result.value),
+            next=result.next,
+        )
+      except ValueError:
+        result = Failure(next=input)
+    return result
 
 
 def Unescape(string):

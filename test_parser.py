@@ -184,6 +184,21 @@ class TestParser(unittest.TestCase):
     self.assertEqual(0x11110000, result.value)
     self.assertEqual(' is a number', result.next.text)
 
+  def testFloat(self):
+    cases = [
+      ("1.2e3 foo", 1.2e3),
+      (".2e3 foo", 0.2e3),
+      ("1e3 foo", 1e3),
+      ("1e+3 foo", 1e3),
+      ("1e-3 foo", 1e-3),
+    ]
+    for (input, value) in cases:
+      result = (parser.Float()
+          .Parse(parser.Input(input)))
+      self.assertTrue(result.success)
+      self.assertEqual(value, result.value)
+      self.assertEqual(" foo", result.next.text)
+
   def testSingleQuoteStringLiteral(self):
     result = (parser.SingleQuoteStringLiteral()
         .Parse(parser.Input("'this string' is single-quoted")))
