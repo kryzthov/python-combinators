@@ -1,11 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 # -*- mode: python -*-
-"""Parser for Avro schema and value definitions."""
+"""Parser for the Configuration Language."""
 
 import parser
-
-from avro import schema
 
 from parser import Branch
 from parser import Opt
@@ -21,19 +19,8 @@ class Error(Exception):
     pass
 
 
-def _ParseNS(match):
-    """Parses a namespace."""
-    absolute = (match[0] is not None)
-    if absolute and (len(match[1]) == 0):
-        return ''
-    elif len(match[1]) == 0:
-        return None
-    else:
-        return '.'.join(match[1])
-
-
 def Token(str):
-    """Avro token, skips spaces and C-style comments."""
+    """Token, skips spaces and C-style comments."""
     return parser.TokenStr(str, spaces=parser.RE_CSTYLE_COMMENTS)
 
 
@@ -44,28 +31,8 @@ Identifier = parser.Token(parser.Identifier, spaces=parser.RE_CSTYLE_COMMENTS)
 Integer = parser.Token(parser.AllInteger, spaces=parser.RE_CSTYLE_COMMENTS)
 
 
-def _AvroNameParser():
-    """Parser for an Avro name: "namespace.Name"."""
-    namespace = \
-        Seq(Opt(Str('.')),
-            Rep(Seq(parser.Identifier, Str('.')).Map(lambda m: m[0]))) \
-        .Map(_ParseNS)
-    avro_name = Seq(namespace, parser.Identifier) \
-        .Map(lambda m: schema.Name(namespace=m[0], name=m[1]))
-    return parser.Token(avro_name, spaces=parser.RE_CSTYLE_COMMENTS)
-
-
-# Parser for Avro names: "[.]?(ns_comp[.])*Name"
-# Result value is an avro.schema.Name object.
-AvroName = _AvroNameParser()
-
-
-class AvroParser(object):
-    """Parser for Avro schemas and values."""
-
-    @staticmethod
-    def _MakePrimitiveParser(type):
-        return Token(type).Map(lambda _: schema.PrimitiveSchema(type))
+class CLParser(object):
+    """Parser for a Configuration Language document."""
 
     def __init__(self):
         names = schema.Names()
@@ -115,8 +82,8 @@ class AvroParser(object):
         class _RecordParser(parser.ParserBase):
             """Custom parser for records.
 
-      This parser is custom to allow recursive record definitions.
-      """
+            This parser is custom to allow recursive record definitions.
+            """
 
             def __init__(self):
                 self._prefix = Seq(Token('record'), AvroName, Token('{')) \
@@ -131,12 +98,12 @@ class AvroParser(object):
                     def _MakeRecordFields(names):
                         """Parses and constructs the record fields.
 
-            Args:
-              names: schema.Names registry with the record registered,
-                  in order to allow recursive records.
-            Returns:
-              Ordered collection of schema.Field.
-            """
+                        Args:
+                          names: schema.Names registry with the record registered,
+                              in order to allow recursive records.
+                        Returns:
+                          Ordered collection of schema.Field.
+                        """
 
                         def _MakeField(m):
                             field = schema.Field(
@@ -181,11 +148,11 @@ class AvroParser(object):
         def _LookupSchemaByName(name):
             """Gets a schema by name.
 
-      Args:
-        name: schema.Name object for the schema to retrieve.
-      Returns:
-        The avro Schema object.
-      """
+            Args:
+                name: schema.Name object for the schema to retrieve.
+            Returns:
+                The avro Schema object.
+            """
             schema = names.GetSchema(name=name.fullname)
             if schema is None:
                 raise Error('No known schema with name: %r' % name.fullname)
@@ -211,16 +178,15 @@ class AvroParser(object):
     def Parse(self, text):
         """Parses an IDL schema representation into a Schema object.
 
-    Args:
-      text: IDL schema representation to parse.
-    Returns:
-      Parsed Schema object.
-    """
+        Args:
+            text: IDL schema representation to parse.
+        Returns:
+            Parsed Schema object.
+        """
         input = parser.Input(text)
         result = self._parser.Parse(input)
         if result.success:
-            assert (len(
-                result.next) == 0), ('Input remaining: %r' % result.next)
+            assert (len(result.next) == 0), ('Input remaining: %r' % result.next)
             return result.value
         raise Error('Invalid schema definition: %r\n%s' % (text, result))
 
