@@ -35,6 +35,16 @@ class Field(object):
             exported=self._exported,
         )
 
+    def __repr__(self):
+        return (
+            f"Field(name={self.name!r}, "
+            f"expr={self._expr!r}, "
+            f"value={self._value!r}, "
+            f"exported={self._exported!r})"
+        )
+
+    __str__ = __repr__
+
 
 class Expr(object):
     def Eval(self, record):

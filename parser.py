@@ -91,7 +91,7 @@ class Input(object):
     def __repr__(self):
         return 'Input(line=%d, column=%d, pos=%d, len=%d, text=%r)' \
             % (self.line, self.column, self.pos, len(self),
-               base.Truncate(self.text, 40))
+               base.truncate(self.text, 40))
 
     def __len__(self):
         """Returns: the number of characters in this input."""
@@ -146,6 +146,11 @@ class Success(ParsingResult):
             value=value,
         )
 
+    def __repr__(self):
+        return f"Success(match={self.match!r}, next={self.next!r})"
+
+    __str__ = __repr__
+
 
 class Failure(ParsingResult):
     def __init__(self, next, message=None):
@@ -155,8 +160,10 @@ class Failure(ParsingResult):
             message=message,
         )
 
-    def __str__(self):
-        return 'Failure(message=%r, next=%r)' % (self.message, self.next)
+    def __repr__(self):
+        return f'Failure(message={self.message!r}, next={self.next!r})'
+
+    __str__ = __repr__
 
 
 # ------------------------------------------------------------------------------
@@ -197,6 +204,11 @@ class Str(ParserBase):
         else:
             return Failure(next=input)
 
+    def __repr__(self):
+        return f"Str({self._str!r})"
+
+    __str__ = __repr__
+
 
 class Regex(ParserBase):
     """Matches a regex. No leading soace is skipped."""
@@ -223,6 +235,11 @@ class Regex(ParserBase):
                 value=matched_str,
                 next=input.Next(len(matched_str)),
             )
+
+    def __repr__(self):
+        return f"Regex({self._regex!r})"
+
+    __str__ = __repr__
 
 
 # ------------------------------------------------------------------------------
@@ -255,6 +272,9 @@ class Token(ParserBase):
 
         # Apply token parser:
         return self._parser.Parse(result.next)
+
+    def __repr__(self):
+        return f"Token({self._parser})"
 
 
 def TokenStr(str, spaces=RE_SPACES):
@@ -363,6 +383,11 @@ class Branch(ParserBase):
                 return result
         return Failure(next=input, message=result.message)
 
+    def __repr__(self):
+        return f'Branch({self._parsers})'
+
+    __str__ = __repr__
+
 
 # ------------------------------------------------------------------------------
 
@@ -382,13 +407,18 @@ class _Map(ParserBase):
             )
         return result
 
+    def __repr__(self):
+        return f"Map({self._parser})"
+
+    __str__ = __repr__
+
 
 def Map(parser, mapfn):
     """Rewrites a successful result's value.
 
       Args:
           parser: Parser whose successful result should be mapped.
-          mapfn: Function that rewrites the value.
+          mapfn: Function mapfn(value) -> value to post-process the parsed value.
       Returns:
           The original parser wrapped to map the result value.
       """
@@ -455,6 +485,9 @@ class Integer(ParserBase):
             )
         return result
 
+    def __repr__(self):
+        return f"Integer(base={self._base})"
+
 
 HexInteger = Integer(base=16, prefix='0[xX]')
 OctalInteger = Integer(base=8, prefix='0[oO]')
@@ -470,7 +503,7 @@ AllInteger = Branch(
 )
 
 
-class Float(ParserBase):
+class _Float(ParserBase):
     def __init__(self):
         self._parser = Regex(r'[0-9]*\.?[0-9]*([eE][+-]?[0-9]+)?')
 
@@ -486,6 +519,14 @@ class Float(ParserBase):
             except ValueError:
                 result = Failure(next=input)
         return result
+
+    def __repr__(self):
+        return "Float"
+
+    __str__ = __repr__
+
+
+Float = _Float()
 
 
 def Unescape(string):
@@ -511,7 +552,7 @@ def Unescape(string):
     return unescaped
 
 
-class SingleQuoteStringLiteral(ParserBase):
+class _SingleQuoteStringLiteral(ParserBase):
     """Matches a single-quote string literal."""
 
     def __init__(self):
@@ -531,7 +572,7 @@ class SingleQuoteStringLiteral(ParserBase):
         return result
 
 
-class DoubleQuoteStringLiteral(ParserBase):
+class _DoubleQuoteStringLiteral(ParserBase):
     """Matches a double-quote string literal."""
 
     def __init__(self):
@@ -551,7 +592,7 @@ class DoubleQuoteStringLiteral(ParserBase):
         return result
 
 
-class TripleQuoteStringLiteral(ParserBase):
+class _TripleQuoteStringLiteral(ParserBase):
     """Matches a triple-quote string literal."""
 
     def __init__(self):
@@ -569,6 +610,11 @@ class TripleQuoteStringLiteral(ParserBase):
                 next=result.next,
             )
         return result
+
+
+TripleQuoteStringLiteral = _TripleQuoteStringLiteral()
+DoubleQuoteStringLiteral = _DoubleQuoteStringLiteral()
+SingleQuoteStringLiteral = _SingleQuoteStringLiteral()
 
 
 # Matches any string literal:

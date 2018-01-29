@@ -10,8 +10,13 @@ from parser import Opt
 from parser import Rep
 from parser import Rep1
 from parser import Seq
+from parser import Map
 from parser import Str
+from parser import Token
 from parser import TokenRegex
+from parser import TokenStr
+
+import clr
 
 
 class Error(Exception):
@@ -19,16 +24,65 @@ class Error(Exception):
     pass
 
 
-def Token(str):
+SPACES = parser.RE_CSTYLE_COMMENTS
+
+
+def Str(str):
     """Token, skips spaces and C-style comments."""
-    return parser.TokenStr(str, spaces=parser.RE_CSTYLE_COMMENTS)
+    return parser.TokenStr(str, spaces=SPACES)
 
 
-# Identifier token:
-Identifier = parser.Token(parser.Identifier, spaces=parser.RE_CSTYLE_COMMENTS)
+# Tokens:
+Identifier = Token(parser.Identifier, spaces=SPACES)
+Integer = Token(parser.AllInteger, spaces=SPACES)
+Float = Token(parser.Float, spaces=SPACES)
+String = Token(parser.AllString, spaces=SPACES)
 
-# Integer token:
-Integer = parser.Token(parser.AllInteger, spaces=parser.RE_CSTYLE_COMMENTS)
+BoolTrue = Map(Str("true"), lambda _: True)
+BoolFalse = Map(Str("false"), lambda _: False)
+Boolean = Token(Branch(BoolTrue, BoolFalse), SPACES)
+
+Type = Str("type")
+
+# Immediate expression parser:
+# Value is an Immediate expression.
+_ImmExpr = Branch(
+    Boolean,
+    Integer,
+    Float,
+    String,
+)
+_ImmExpr = Map(_ImmExpr, lambda value: clr.Immediate(value))
+
+_RefExpr = Map(Identifier, lambda value: clr.Ref(value))
+
+Expr = Branch(_ImmExpr, _RefExpr)
+
+# Field parser:
+# Value is [field name: Identifier, field type, field value: Expression]
+_Field = Seq(
+    Identifier,
+    Opt(Map(Seq(Str(":"), Type), lambda vs: vs[1])),
+    Opt(Map(Seq(Str("="), Expr), lambda vs: vs[1])),
+    Opt(Branch(Str(","), Str(";"))),
+)
+_Field = Map(_Field, lambda vs: vs[0:3])
+Field = _Field
+
+# Record parser:
+# Value is a Record
+_Record = Seq(Str("{"), Rep(Field), Str("}"))
+
+def _make_record(fields):
+    field_map = dict()
+    for field in fields:
+        [field_name, field_type, field_expr] = field
+        field_map[field_name] = field_expr
+    rec = clr.Record(**field_map)
+    return rec
+
+_Record = Map(_Record, lambda values: _make_record(values[1]))
+Record = _Record
 
 
 class CLParser(object):
