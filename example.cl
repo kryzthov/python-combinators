@@ -74,5 +74,26 @@ type FinancialYear = {
 let NextFinancialYear(previous: FinancialYear): FinancialYear = {
     year = previous.year + 1
     age = previous.age + 1
-    
+
+}
+
+
+
+main = {
+  fibo(n) = {
+    result = if n <= 1 then 1 else fibo(n - 1).result + fibo(n - 2).result
+  }
+
+  fa(n) = {
+    result = if (n % 2) == 0 then fa(n-1) else fb(n-1)
+  }
+
+  fb(n) = {
+    result = if (n % 2) == 1 then fb(n-1) else fa(n-1)
+  }
+
+  f5 = fibo(5).result,
+
+  n = 10,
+  fn = fibo(n).result,
 }

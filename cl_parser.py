@@ -7,11 +7,12 @@ import parser
 
 from parser import Branch
 from parser import Opt
+from parser import Ref
 from parser import Rep
 from parser import Rep1
 from parser import Seq
 from parser import Map
-from parser import Str
+#from parser import Str
 from parser import Token
 from parser import TokenRegex
 from parser import TokenStr
@@ -44,6 +45,8 @@ Boolean = Token(Branch(BoolTrue, BoolFalse), SPACES)
 
 Type = Str("type")
 
+Expr = Ref()
+
 # Immediate expression parser:
 # Value is an Immediate expression.
 _ImmExpr = Branch(
@@ -56,7 +59,69 @@ _ImmExpr = Map(_ImmExpr, lambda value: clr.Immediate(value))
 
 _RefExpr = Map(Identifier, lambda value: clr.Ref(value))
 
-Expr = Branch(_ImmExpr, _RefExpr)
+# Binary expressions:
+Op0 = Branch(
+    Str("+"),
+    Str("-"),
+)
+Op1 = Branch(
+    Str("*"),
+    Str("/"),
+)
+Op2 = Branch(
+    Str("**"),
+)
+
+OP0_FN_MAP = {
+    "+": lambda x, y: x + y,
+    "-": lambda x, y: x - y,
+}
+OP1_FN_MAP = {
+    "*": lambda x, y: x * y,
+    "/": lambda x, y: x / y,
+}
+OP2_FN_MAP = {
+    "**": lambda x, y: x ** y,
+}
+
+def _make_bin_expr0(values):
+    [left, values] = values
+    for value in values:
+        [op, right] = value
+        op = OP0_FN_MAP[op]
+        left = clr.BinOp(op, left, right)
+    return left
+
+def _make_bin_expr1(values):
+    [left, values] = values
+    for value in values:
+        [op, right] = value
+        op = OP1_FN_MAP[op]
+        left = clr.BinOp(op, left, right)
+    return left
+
+def _make_bin_expr2(values):
+    [left, values] = values
+    for value in values:
+        [op, right] = value
+        op = OP2_FN_MAP[op]
+        left = clr.BinOp(op, left, right)
+    return left
+
+_ParenExpr = Map(Seq(Str("("), Expr, Str(")")), lambda vs: vs[1])
+
+_SimpleExpr = Branch(_ImmExpr, _RefExpr, _ParenExpr)
+
+_BinExpr2 = Map(Seq(_SimpleExpr, Rep(Seq(Op2, _SimpleExpr))), _make_bin_expr2)
+_BinExpr1 = Map(Seq(_BinExpr2, Rep(Seq(Op1, _BinExpr2))), _make_bin_expr1)
+_BinExpr0 = Map(Seq(_BinExpr1, Rep(Seq(Op0, _BinExpr1))), _make_bin_expr0)
+
+_IfExpr = Seq(Str("if"), Expr, Str("then"), Expr, Str("else"), Expr)
+def _make_if_expr(values):
+    return clr.If(values[1], values[3], values[5])
+_IfExpr = Map(_IfExpr, _make_if_expr)
+
+Expr.Bind(Branch(_IfExpr, _BinExpr0))
 
 # Field parser:
 # Value is [field name: Identifier, field type, field value: Expression]

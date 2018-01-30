@@ -52,6 +52,26 @@ class TestRecordParser(unittest.TestCase):
         self.assertTrue(result.success)
         self.assertEqual({'x': 1, 'y': 1}, result.value.export())
 
+    def test_paren_expr(self):
+        result = cl_parser.Record.Parse(parser.Input('{x = (2); y = x;}'))
+        self.assertTrue(result.success)
+        self.assertEqual({'x': 2, 'y': 2}, result.value.export())
+
+    def test_bin_expr(self):
+        result = cl_parser.Record.Parse(parser.Input('{x = 1 + 2 ** 3 * 3}'))
+        self.assertTrue(result.success)
+        self.assertEqual({'x': 25}, result.value.export())
+
+    def test_bin_expr_paren(self):
+        result = cl_parser.Record.Parse(parser.Input('{x = (3 - 1) ** 3}'))
+        self.assertTrue(result.success)
+        self.assertEqual({'x': 8}, result.value.export())
+
+    def test_if_expr(self):
+        result = cl_parser.Record.Parse(parser.Input('{x = true, y = if x then 5 else 10}'))
+        self.assertTrue(result.success)
+        self.assertEqual({'x': True, 'y': 5}, result.value.export())
+
 
 
 def main(args):
