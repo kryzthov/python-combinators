@@ -72,6 +72,11 @@ class TestRecordParser(unittest.TestCase):
         self.assertTrue(result.success)
         self.assertEqual({'x': True, 'y': 5}, result.value.export())
 
+    def test_unary_expr(self):
+        result = cl_parser.Record.Parse(parser.Input('{x = true, y = not x, a = 1, b = -a}'))
+        self.assertTrue(result.success)
+        self.assertEqual({'x': True, 'y': False, 'a': 1, 'b': -1}, result.value.export())
+
 
 
 def main(args):

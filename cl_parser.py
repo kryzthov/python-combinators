@@ -3,6 +3,8 @@
 # -*- mode: python -*-
 """Parser for the Configuration Language."""
 
+import collections
+
 import parser
 
 from parser import Branch
@@ -59,69 +61,70 @@ _ImmExpr = Map(_ImmExpr, lambda value: clr.Immediate(value))
 
 _RefExpr = Map(Identifier, lambda value: clr.Ref(value))
 
+# -----------------------------------------------------------------------------
 # Binary expressions:
-Op0 = Branch(
-    Str("+"),
-    Str("-"),
-)
-Op1 = Branch(
-    Str("*"),
-    Str("/"),
-)
-Op2 = Branch(
-    Str("**"),
-)
+Operator = collections.namedtuple('Operator', ('token', 'fn'))
 
-OP0_FN_MAP = {
-    "+": lambda x, y: x + y,
-    "-": lambda x, y: x - y,
-}
-OP1_FN_MAP = {
-    "*": lambda x, y: x * y,
-    "/": lambda x, y: x / y,
-}
-OP2_FN_MAP = {
-    "**": lambda x, y: x ** y,
-}
-
-def _make_bin_expr0(values):
-    [left, values] = values
-    for value in values:
-        [op, right] = value
-        op = OP0_FN_MAP[op]
-        left = clr.BinOp(op, left, right)
-    return left
-
-def _make_bin_expr1(values):
-    [left, values] = values
-    for value in values:
-        [op, right] = value
-        op = OP1_FN_MAP[op]
-        left = clr.BinOp(op, left, right)
-    return left
-
-def _make_bin_expr2(values):
-    [left, values] = values
-    for value in values:
-        [op, right] = value
-        op = OP2_FN_MAP[op]
-        left = clr.BinOp(op, left, right)
-    return left
+# Operators, by decreasing priority:
+OP_LEVELS = [
+    [
+        Operator(token="**", fn=lambda x, y: x ** y),
+    ],
+    [
+        Operator(token="*", fn=lambda x, y: x * y),
+        Operator(token="/", fn=lambda x, y: x / y),
+    ],
+    [
+        Operator(token="+", fn=lambda x, y: x + y),
+        Operator(token="-", fn=lambda x, y: x - y),
+    ],
+    [
+        Operator(token="and", fn=lambda x, y: x and y),
+        Operator(token="or", fn=lambda x, y: x or y),
+    ],
+]
 
 _ParenExpr = Map(Seq(Str("("), Expr, Str(")")), lambda vs: vs[1])
 
-_SimpleExpr = Branch(_ImmExpr, _RefExpr, _ParenExpr)
+_NotExpr = Map(Seq(Str("not"), Expr), lambda vs: clr.UnaryOp(lambda v: not v, vs[1]))
+_NegExpr = Map(Seq(Str("-"), Expr), lambda vs: clr.UnaryOp(lambda v: -v, vs[1]))
 
-_BinExpr2 = Map(Seq(_SimpleExpr, Rep(Seq(Op2, _SimpleExpr))), _make_bin_expr2)
-_BinExpr1 = Map(Seq(_BinExpr2, Rep(Seq(Op1, _BinExpr2))), _make_bin_expr1)
-_BinExpr0 = Map(Seq(_BinExpr1, Rep(Seq(Op0, _BinExpr1))), _make_bin_expr0)
+_UnaryExpr = Branch(
+    _NotExpr,
+    _NegExpr,
+)
+
+_SimpleExpr = Branch(_ImmExpr, _ParenExpr, _UnaryExpr, _RefExpr)
+
+
+def make_bin_expr_parser(levels, base_parser):
+    if len(levels) == 0:
+        return base_parser
+    ops, levels = levels[0], levels[1:]
+
+    op_parser = Branch(*map(lambda op: Str(op.token), ops))
+    op_fn_map = dict(ops)
+    def _make_bin_expr(values):
+        [left, values] = values
+        for value in values:
+            [op, right] = value
+            op = op_fn_map[op]
+            left = clr.BinOp(op, left, right)
+        return left
+    parser = Map(Seq(base_parser, Rep(Seq(op_parser, base_parser))), _make_bin_expr)
+
+    return make_bin_expr_parser(levels=levels, base_parser=parser)
+
+
+_BinExpr = make_bin_expr_parser(levels=OP_LEVELS, base_parser=_SimpleExpr)
+
 
 _IfExpr = Seq(Str("if"), Expr, Str("then"), Expr, Str("else"), Expr)
 def _make_if_expr(values):
     return clr.If(values[1], values[3], values[5])
 _IfExpr = Map(_IfExpr, _make_if_expr)
 
-Expr.Bind(Branch(_IfExpr, _BinExpr0))
+Expr.Bind(Branch(_IfExpr, _BinExpr))
 
 # Field parser:
 # Value is [field name: Identifier, field type, field value: Expression]

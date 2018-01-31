@@ -67,6 +67,15 @@ class Ref(Expr):
         return record.get(self._ref)
 
 
+class UnaryOp(Expr):
+    def __init__(self, op, operand):
+        self._op = op
+        self._operand = operand
+
+    def Eval(self, record):
+        return self._op(self._operand.Eval(record))
+
+
 class BinOp(Expr):
     def __init__(self, op, left, right):
         self._op = op
