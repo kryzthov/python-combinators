@@ -98,13 +98,16 @@ class If(Expr):
 
 class FieldAccess(Expr):
     def __init__(self, record, name):
+        assert isinstance(name, Ref)
         self._record = record
-        self._name = name
+        self._name = name._ref
 
     def Eval(self, record):
         rec = self._record.Eval(record)
-        # Note: the record's field evaluates in the context of its enclosing record
-        return rec.get(self._name.Eval(record))
+        # Notes:
+        #  - the record's field evaluates in the context of its enclosing record
+        #  - the field name doesn't resolve
+        return rec.get(self._name)
 
 
 class Record(object):
@@ -117,6 +120,7 @@ class Record(object):
         return self
 
     def get(self, field_name):
+        assert (field_name in self._fields), f"Field {field_name!r} missing in {self._fields!r}"
         return self._fields[field_name].Eval(self)
 
     def __add__(self, rec):

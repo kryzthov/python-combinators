@@ -77,6 +77,19 @@ class TestRecordParser(unittest.TestCase):
         self.assertTrue(result.success)
         self.assertEqual({'x': True, 'y': False, 'a': 1, 'b': -1}, result.value.export())
 
+    def test_nested_record(self):
+        result = cl_parser.Record.Parse(parser.Input("""
+        {
+            x = {
+                a = 1
+                b = 3*a
+            }
+            y = x.a
+        }
+        """))
+        self.assertTrue(result.success)
+        self.assertEqual({'x': {'a': 1, 'b': 3}, 'y': 1}, result.value.export())
+
 
 
 def main(args):
