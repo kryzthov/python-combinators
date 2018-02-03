@@ -23,6 +23,10 @@ class Field(object):
         """The name of this field."""
         return self._name
 
+    @property
+    def expr(self):
+        return self._expr
+
     def Eval(self, record):
         if self._value is _VOID:
             self._value = self._expr.Eval(record)
@@ -43,8 +47,8 @@ class Field(object):
             f"exported={self._exported!r})"
         )
 
-    __str__ = __repr__
-
+    def __str__(self):
+        return f"Field({self.name}={self.expr})"
 
 class Expr(object):
     def Eval(self, record):
@@ -58,6 +62,12 @@ class Immediate(Expr):
     def Eval(self, record):
         return self._value
 
+    def __str__(self):
+        return str(self._value)
+
+    def __repr__(self):
+        return f"Immediate({self._value})"
+
 
 class Ref(Expr):
     def __init__(self, ref):
@@ -66,24 +76,38 @@ class Ref(Expr):
     def Eval(self, record):
         return record.get(self._ref)
 
+    def __str__(self):
+        return self._ref
+
+    def __repr__(self):
+        return f"Ref({self._ref})"
+
 
 class UnaryOp(Expr):
-    def __init__(self, op, operand):
+    def __init__(self, op, op_fn, operand):
         self._op = op
+        self._op_fn = op_fn
         self._operand = operand
 
     def Eval(self, record):
-        return self._op(self._operand.Eval(record))
+        return self._op_fn(self._operand.Eval(record))
 
 
 class BinOp(Expr):
-    def __init__(self, op, left, right):
+    def __init__(self, op, op_fn, left, right):
         self._op = op
+        self._op_fn = op_fn
         self._left = left
         self._right = right
 
     def Eval(self, record):
-        return self._op(self._left.Eval(record), self._right.Eval(record))
+        return self._op_fn(self._left.Eval(record), self._right.Eval(record))
+
+    def __str__(self):
+        return f"{self._left} {self._op} {self._right}"
+
+    def __repr__(self):
+        return f"BinOp(op={self._op}, left={self._left}, right={self._right})"
 
 
 class If(Expr):
@@ -94,6 +118,12 @@ class If(Expr):
 
     def Eval(self, record):
         return (self._etrue if self._cond.Eval(record) else self._efalse).Eval(record)
+
+    def __str__(self):
+        return f"if {self._cond} then {self._etrue} else {self._efalse}"
+
+    def __repr__(self):
+        return f"If(cond={self._cond}, etrue={self._etrue}, efalse={self._efalse})"
 
 
 class FieldAccess(Expr):
@@ -108,6 +138,9 @@ class FieldAccess(Expr):
         #  - the record's field evaluates in the context of its enclosing record
         #  - the field name doesn't resolve
         return rec.get(self._name)
+
+    def __str__(self):
+        return f"{self._record}.{self._name}"
 
 
 class Record(object):
@@ -124,12 +157,14 @@ class Record(object):
         return self._fields[field_name].Eval(self)
 
     def __add__(self, rec):
+        merged = Record()
         def merge_fields():
             for name, field in self._fields.items():
                 yield name, field.clone()
             for name, field in rec._fields.items():
                 yield name, field.clone()
-        return Record(**dict(merge_fields()))
+        merged._fields = dict(merge_fields())
+        return merged
 
     def export(self):
         def _export():
@@ -140,3 +175,42 @@ class Record(object):
                         value = value.export()
                     yield (name, value)
         return dict(_export())
+
+    def __str__(self):
+        return "{" + ",".join(map(lambda f: f"{f.name}={f.expr}", self._fields.values())) + "}"
+
+    def __repr__(self):
+        return "Record({})".format(",".join(map(lambda f: f"{f.name}={f.expr!r}", self._fields.values())))
+
+
+class Call(object):
+    def __init__(self, fun, **kwargs):
+        self._fun = fun
+        self._params = dict()
+        for name, expr in kwargs.items():
+            self._params[name] = Field(name, expr)
+
+    def Eval(self, record):
+        #print("\nEvaluating call: {}({})".format(self._fun, ",".join(map(lambda p: f"{p.name}={p.expr}", self._params.values()))))
+        #print(f"self = {record!s}")
+        fun = self._fun.Eval(record)
+        params = dict()
+        for name, expr in self._params.items():
+            #print(f"params[{name}] = {expr!r}")
+            params[name] = Immediate(expr.clone().Eval(record))  # clone the Field to avoid caching
+            #print(f"params[{name}] = {params[name]}")
+        params = Record(**params)
+        #print(f"merging {fun!s}\n    and {params!s}")
+        result = fun + params
+        #print(f"result = {result!s}")
+        return result
+
+    def __str__(self):
+        return "{}({})".format(
+            self._fun,
+            ",".join(map(lambda p: f"{p.name}={p.expr}", self._params.values())))
+
+    def __repr__(self):
+        return "Call(fun={!r}, params=({}))".format(
+            self._fun,
+            ",".join(map(lambda p: f"{p.name}={p.expr!r}", self._params.values())))

@@ -90,6 +90,51 @@ class TestRecordParser(unittest.TestCase):
         self.assertTrue(result.success)
         self.assertEqual({'x': {'a': 1, 'b': 3}, 'y': 1}, result.value.export())
 
+    def test_call(self):
+        result = cl_parser.Record.Parse(parser.Input("""
+        {
+            x = {
+                z = y + 1
+            }
+            y = x(y=2)
+        }
+        """))
+        self.assertTrue(result.success)
+        self.assertEqual({'y': 2, 'z': 3}, result.value.get("y").export())
+
+    def test_factorial(self):
+        result = cl_parser.Record.Parse(parser.Input("""
+        {
+            fact = {
+                result = if n <= 1 then 1 else n * fact(n=n-1, fact=fact).result
+            }
+
+            f0 = fact(n=0, fact=fact).result
+            f1 = fact(n=1, fact=fact).result
+            f2 = fact(n=2, fact=fact).result
+            f3 = fact(n=3, fact=fact).result
+            f10 = fact(n=10, fact=fact).result
+        }
+        """))
+        self.assertTrue(result.success)
+        self.assertEqual(1, result.value.get("f0"))
+        self.assertEqual(1, result.value.get("f1"))
+        self.assertEqual(2, result.value.get("f2"))
+        self.assertEqual(6, result.value.get("f3"))
+        self.assertEqual(3628800, result.value.get("f10"))
+
+    def test_fibo(self):
+        result = cl_parser.Record.Parse(parser.Input("""
+        {
+            fibo = {
+                result = if (n <= 1) then 1 else fibo(n=n-1, fibo=fibo).result + fibo(n=n-2, fibo=fibo).result
+            }
+
+            f10 = fibo(n=10, fibo=fibo).result
+        }
+        """))
+        self.assertTrue(result.success)
+        self.assertEqual(89, result.value.get("f10"))
 
 
 def main(args):

@@ -49,6 +49,7 @@ Type = Str("type")
 
 Expr = Ref()
 Record = Ref()
+Field = Ref()
 
 # Immediate expression parser:
 # Value is an Immediate expression.
@@ -60,7 +61,24 @@ _ImmExpr = Branch(
 )
 _ImmExpr = Map(_ImmExpr, lambda value: clr.Immediate(value))
 
-_RefExpr = Map(Identifier, lambda value: clr.Ref(value))
+# -----------------------------------------------------------------------------
+# Reference or function call
+
+def make_ref_expr(values):
+    [ident, opt] = values
+    ref = clr.Ref(ident)
+    if opt is None:
+        return ref
+
+    [_, params, _] = opt
+
+    param_map = dict()
+    for param in params:
+        [param_name, param_type, param_expr] = param
+        param_map[param_name] = param_expr
+    return clr.Call(fun=ref, **param_map)
+
+_RefExpr = Map(Seq(Identifier, Opt(Seq(Str("("), Rep(Field), Str(")")))), make_ref_expr)
 
 # -----------------------------------------------------------------------------
 # Binary expressions:
@@ -80,6 +98,14 @@ OP_LEVELS = [
         Operator(token="-", fn=lambda x, y: x - y),
     ],
     [
+        Operator(token="==", fn=lambda x, y: x == y),
+        Operator(token="!=", fn=lambda x, y: x != y),
+        Operator(token="<=", fn=lambda x, y: x <= y),
+        Operator(token=">=", fn=lambda x, y: x >= y),
+        Operator(token="<", fn=lambda x, y: x < y),
+        Operator(token=">", fn=lambda x, y: x > y),
+    ],
+    [
         Operator(token="and", fn=lambda x, y: x and y),
         Operator(token="or", fn=lambda x, y: x or y),
     ],
@@ -87,8 +113,8 @@ OP_LEVELS = [
 
 _ParenExpr = Map(Seq(Str("("), Expr, Str(")")), lambda vs: vs[1])
 
-_NotExpr = Map(Seq(Str("not"), Expr), lambda vs: clr.UnaryOp(lambda v: not v, vs[1]))
-_NegExpr = Map(Seq(Str("-"), Expr), lambda vs: clr.UnaryOp(lambda v: -v, vs[1]))
+_NotExpr = Map(Seq(Str("not"), Expr), lambda vs: clr.UnaryOp("not", lambda v: not v, vs[1]))
+_NegExpr = Map(Seq(Str("-"), Expr), lambda vs: clr.UnaryOp("-", lambda v: -v, vs[1]))
 
 _UnaryExpr = Branch(
     _NotExpr,
@@ -117,8 +143,8 @@ def make_bin_expr_parser(levels, base_parser):
         [left, values] = values
         for value in values:
             [op, right] = value
-            op = op_fn_map[op]
-            left = clr.BinOp(op, left, right)
+            op_fn = op_fn_map[op]
+            left = clr.BinOp(op, op_fn, left, right)
         return left
     parser = Map(Seq(base_parser, Rep(Seq(op_parser, base_parser))), _make_bin_expr)
 
@@ -144,7 +170,7 @@ _Field = Seq(
     Opt(Branch(Str(","), Str(";"))),
 )
 _Field = Map(_Field, lambda vs: vs[0:3])
-Field = _Field
+Field.Bind(_Field)
 
 # Record parser:
 # Value is a Record
