@@ -95,7 +95,7 @@ class TestRecordParser(unittest.TestCase):
         {
             empty = []
             singleton = [1]
-            singleton2 = [2,]
+            singleton2 = [1+1,]
             double = [1, 2]
             double2 = [1, 2,]
         }
