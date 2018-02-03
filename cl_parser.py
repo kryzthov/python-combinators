@@ -111,7 +111,27 @@ OP_LEVELS = [
     ],
 ]
 
-_ParenExpr = Map(Seq(Str("("), Expr, Str(")")), lambda vs: vs[1])
+LPAREN = Str('(')
+RPAREN = Str(')')
+LBRACKET = Str('[')
+RBRACKET = Str(']')
+COMMA = Str(',')
+
+_ParenExpr = Map(Seq(LPAREN, Expr, RPAREN), lambda vs: vs[1])
+
+
+def make_list_expr(vs):
+    [_, vs, _] = vs  # remove brackets
+    if vs is None:
+        return clr.List()
+
+    [head, tail, _] = vs
+    l = [head]
+    for [_, elem] in tail:
+        l.append(elem)
+    return clr.List(*l)
+
+_ListExpr = Map(Seq(LBRACKET, Opt(Seq(Expr, Rep(Seq(COMMA, Expr)), Opt(COMMA))), RBRACKET), make_list_expr)
 
 _NotExpr = Map(Seq(Str("not"), Expr), lambda vs: clr.UnaryOp("not", lambda v: not v, vs[1]))
 _NegExpr = Map(Seq(Str("-"), Expr), lambda vs: clr.UnaryOp("-", lambda v: -v, vs[1]))
@@ -121,7 +141,7 @@ _UnaryExpr = Branch(
     _NegExpr,
 )
 
-_SimpleExpr = Branch(_ImmExpr, _ParenExpr, _UnaryExpr, _RefExpr)
+_SimpleExpr = Branch(_ImmExpr, _ParenExpr, _ListExpr, _UnaryExpr, _RefExpr)
 
 def make_field_expr(values):
     [left, values] = values

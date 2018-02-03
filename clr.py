@@ -50,6 +50,7 @@ class Field(object):
     def __str__(self):
         return f"Field({self.name}={self.expr})"
 
+
 class Expr(object):
     def Eval(self, record):
         raise Error("Not implemented")
@@ -81,6 +82,20 @@ class Ref(Expr):
 
     def __repr__(self):
         return f"Ref({self._ref})"
+
+
+class List(Expr):
+    def __init__(self, *elems):
+        self._elems = elems
+
+    def Eval(self, record):
+        return list(map(lambda e: e.Eval(record), self._elems))
+
+    def __str__(self):
+        return '[{}]'.format(','.join(map(str, self._elems)))
+
+    def __repr__(self):
+        return f'List(elems={self._elems!r})'
 
 
 class UnaryOp(Expr):

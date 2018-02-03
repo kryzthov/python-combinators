@@ -90,6 +90,28 @@ class TestRecordParser(unittest.TestCase):
         self.assertTrue(result.success)
         self.assertEqual({'x': {'a': 1, 'b': 3}, 'y': 1}, result.value.export())
 
+    def test_list(self):
+        result = cl_parser.Record.Parse(parser.Input("""
+        {
+            empty = []
+            singleton = [1]
+            singleton2 = [2,]
+            double = [1, 2]
+            double2 = [1, 2,]
+        }
+        """))
+        self.assertTrue(result.success)
+        self.assertEqual(
+            {
+                'empty': [],
+                'singleton': [1],
+                'singleton2': [2],
+                'double': [1, 2],
+                'double2': [1, 2],
+            },
+            result.value.export())
+
+
     def test_call(self):
         result = cl_parser.Record.Parse(parser.Input("""
         {

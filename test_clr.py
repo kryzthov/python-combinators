@@ -10,12 +10,12 @@ class TestRuntime(unittest.TestCase):
     def test_basic(self):
         rec = clr.Record(
             x=clr.Immediate(1),
-            y=clr.BinOp(lambda x, y: x+y, clr.Ref('x'), clr.Immediate(1)),
+            y=clr.BinOp('+', lambda x, y: x+y, clr.Ref('x'), clr.Immediate(1)),
         )
         try:
             rec.get('a')
             self.fail()
-        except KeyError:
+        except AssertionError:
             pass
 
         self.assertEqual(1, rec.get('x'))
@@ -25,7 +25,7 @@ class TestRuntime(unittest.TestCase):
     def test_add_record(self):
         rec1 = clr.Record(
             x=clr.Immediate(1),
-            y=clr.BinOp(lambda x, y: x+y, clr.Ref('x'), clr.Immediate(1)),
+            y=clr.BinOp('+', lambda x, y: x+y, clr.Ref('x'), clr.Immediate(1)),
         )
         rec2 = clr.Record(
             x=clr.Immediate(2),
@@ -42,12 +42,16 @@ class TestRuntime(unittest.TestCase):
 
         rec = clr.Record(
             nested=nested,
-            y=clr.BinOp(lambda x, y: x+y,
-                        clr.FieldAccess(clr.Ref('nested'), clr.Immediate('x')),
+            y=clr.BinOp('+', lambda x, y: x+y,
+                        clr.FieldAccess(clr.Ref('nested'), clr.Ref('x')),
                         clr.Immediate(1)),
         )
         self.assertEqual(2, rec.get('y'))
         self.assertEqual({'nested': {'x': 1}, 'y': 2}, rec.export())
+
+    def test_list(self):
+        l = clr.List(clr.Immediate(1), clr.BinOp('+', lambda x, y: x + y, clr.Immediate(1), clr.Immediate(2)))
+        self.assertEqual([1, 3], l.Eval(None))
 
 
 
