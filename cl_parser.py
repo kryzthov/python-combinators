@@ -40,6 +40,7 @@ def Str(str):
 Identifier = Token(parser.Identifier, spaces=SPACES)
 Integer = Token(parser.AllInteger, spaces=SPACES)
 Float = Token(parser.Float, spaces=SPACES)
+Number = Token(parser.Number, spaces=SPACES)
 String = Token(parser.AllString, spaces=SPACES)
 
 BoolTrue = Map(Str("true"), lambda _: True)
@@ -66,8 +67,9 @@ Field = Ref()
 # Value is an Immediate expression.
 ImmExpr = Branch(
     Boolean,
-    Integer,
-    Float,
+    Number,
+    # Float,
+    # Integer,
     String,
 )
 ImmExpr = Map(ImmExpr, lambda value: clr.Immediate(value))

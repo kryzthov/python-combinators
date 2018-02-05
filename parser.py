@@ -564,6 +564,42 @@ class _Float(ParserBase):
 Float = _Float()
 
 
+class _Number(ParserBase):
+    def __init__(self):
+        self._parser = Regex(r'[0-9]*\.?[0-9]*([eE][+-]?[0-9]+)?')
+
+    def Parse(self, input):
+        result = self._parser.Parse(input)
+        if result.success:
+            try:
+                return Success(
+                    match=result.match,
+                    value=int(result.value),
+                    next=result.next,
+                )
+            except ValueError:
+                pass
+
+            try:
+                return Success(
+                    match=result.match,
+                    value=float(result.value),
+                    next=result.next,
+                )
+            except ValueError:
+                pass
+
+            return Failure(next=input)
+
+    def __repr__(self):
+        return "Float"
+
+    __str__ = __repr__
+
+
+Number = _Number()
+
+
 def Unescape(string):
     unescaped = ''
     while len(string) > 0:

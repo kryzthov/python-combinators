@@ -190,15 +190,16 @@ class TestParser(unittest.TestCase):
             ("1e3 foo", 1e3),
             ("1e+3 foo", 1e3),
             ("1e-3 foo", 1e-3),
+            ("0.3 foo", 0.3),
         ]
         for (input, value) in cases:
-            result = (parser.Float().Parse(parser.Input(input)))
+            result = (parser.Float.Parse(parser.Input(input)))
             self.assertTrue(result.success)
             self.assertEqual(value, result.value)
             self.assertEqual(" foo", result.next.text)
 
     def testSingleQuoteStringLiteral(self):
-        result = (parser.SingleQuoteStringLiteral().Parse(
+        result = (parser.SingleQuoteStringLiteral.Parse(
             parser.Input("'this string' is single-quoted")))
         self.assertTrue(result.success)
         self.assertEqual("'this string'", result.match)
@@ -206,7 +207,7 @@ class TestParser(unittest.TestCase):
         self.assertEqual(' is single-quoted', result.next.text)
 
     def testDoubleQuoteStringLiteral(self):
-        result = (parser.DoubleQuoteStringLiteral().Parse(
+        result = (parser.DoubleQuoteStringLiteral.Parse(
             parser.Input('"this string" is double-quoted')))
         self.assertTrue(result.success)
         self.assertEqual('"this string"', result.match)
@@ -214,7 +215,7 @@ class TestParser(unittest.TestCase):
         self.assertEqual(' is double-quoted', result.next.text)
 
     def testTripeQuoteStringLiteral(self):
-        result = (parser.TripleQuoteStringLiteral().Parse(
+        result = (parser.TripleQuoteStringLiteral.Parse(
             parser.Input('"""this "\n string""" is triple """ quoted')))
         self.assertTrue(result.success)
         self.assertEqual('"""this "\n string"""', result.match)

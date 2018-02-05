@@ -203,12 +203,11 @@ class TestParser(unittest.TestCase):
         self.assertEqual(2, result.value.get('m01'))
         self.assertEqual(10, result.value.get('m10'))
 
-
-    # def test_finulator(self):
-    #     with open('finulator.cl', mode='rt', encoding='utf-8') as f:
-    #         source = f.read()
-    #     result = cl_parser.Record.Parse(parser.Input(source))
-    #     self.assertTrue(result.success, result)
+    def test_finulator(self):
+        with open('finulator.cl', mode='rt', encoding='utf-8') as f:
+            source = f.read()
+        result = cl_parser.Record.Parse(parser.Input(source))
+        self.assertTrue(result.success, result)
 
 
 def main(args):
