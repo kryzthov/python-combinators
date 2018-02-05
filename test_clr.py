@@ -43,7 +43,7 @@ class TestRuntime(unittest.TestCase):
         rec = clr.Record(
             nested=nested,
             y=clr.BinOp('+', lambda x, y: x+y,
-                        clr.FieldAccess(clr.Ref('nested'), clr.Ref('x')),
+                        clr.FieldAccess(clr.Ref('nested'), 'x'),
                         clr.Immediate(1)),
         )
         self.assertEqual(2, rec.get('y'))
@@ -51,7 +51,7 @@ class TestRuntime(unittest.TestCase):
 
     def test_list(self):
         l = clr.List(clr.Immediate(1), clr.BinOp('+', lambda x, y: x + y, clr.Immediate(1), clr.Immediate(2)))
-        self.assertEqual([1, 3], l.Eval(None))
+        self.assertEqual([1, 3], clr.export(l.Eval(None), context=None))
 
 
 

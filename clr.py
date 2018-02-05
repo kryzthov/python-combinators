@@ -89,13 +89,38 @@ class List(Expr):
         self._elems = elems
 
     def Eval(self, record):
-        return list(map(lambda e: e.Eval(record), self._elems))
+        # return list(map(lambda e: e.Eval(record), self._elems))
+        return self
 
     def __str__(self):
         return '[{}]'.format(','.join(map(str, self._elems)))
 
     def __repr__(self):
         return f'List(elems={self._elems!r})'
+
+    def __add__(self, other):
+        return List(*(self._elems + other._elems))
+
+    def get(self, index, context):
+        return self._elems[index].Eval(context)
+
+    def export(self, context):
+        return list(map(lambda e: export(e.Eval(context), context), self._elems))
+
+
+class ListAccess(Expr):
+    def __init__(self, list, index):
+        self._list = list
+        self._index = index
+
+    def __str__(self):
+        return f"{self._list}[{self._index}]"
+
+    def __repr__(self):
+        return f"List({self._list}, index={self._index}"
+
+    def Eval(self, context):
+        return self._list.Eval(context).get(self._index.Eval(context), context=context)
 
 
 class UnaryOp(Expr):
@@ -143,9 +168,8 @@ class If(Expr):
 
 class FieldAccess(Expr):
     def __init__(self, record, name):
-        assert isinstance(name, Ref)
         self._record = record
-        self._name = name._ref
+        self._name = name
 
     def Eval(self, record):
         rec = self._record.Eval(record)
@@ -156,6 +180,13 @@ class FieldAccess(Expr):
 
     def __str__(self):
         return f"{self._record}.{self._name}"
+
+
+def export(value, context):
+    if isinstance(value, Record) or isinstance(value, List):
+        return value.export(context=context)
+
+    return value
 
 
 class Record(object):
@@ -181,14 +212,11 @@ class Record(object):
         merged._fields = dict(merge_fields())
         return merged
 
-    def export(self):
+    def export(self, context=None):
         def _export():
             for name, field in self._fields.items():
                 if field._exported:
-                    value = field.Eval(self)
-                    if isinstance(value, Record):
-                        value = value.export()
-                    yield (name, value)
+                    yield (name, export(field.Eval(self), context=self))
         return dict(_export())
 
     def __str__(self):
@@ -199,10 +227,10 @@ class Record(object):
 
 
 class Call(object):
-    def __init__(self, fun, **kwargs):
+    def __init__(self, fun, params):
         self._fun = fun
         self._params = dict()
-        for name, expr in kwargs.items():
+        for name, expr in params.items():
             self._params[name] = Field(name, expr)
 
     def Eval(self, record):

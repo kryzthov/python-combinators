@@ -172,9 +172,6 @@ class Failure(ParsingResult):
 class ParserBase(object, metaclass=abc.ABCMeta):
     """Base class for a parser."""
 
-    def __init__(self):
-        pass
-
     @abc.abstractmethod
     def Parse(self, input):
         """Parses the specified input, and returns a ParsingResult.
@@ -276,6 +273,8 @@ class Token(ParserBase):
     def __repr__(self):
         return f"Token({self._parser})"
 
+    __str__ = __repr__
+
 
 def TokenStr(str, spaces=RE_SPACES):
     """Matches a token, skipping leading spaces if any."""
@@ -302,6 +301,11 @@ class Opt(ParserBase):
             return result
         else:
             return Success(next=input, match='')
+
+    def __repr__(self):
+        return f"Opt({self._parser})"
+
+    __str__ = __repr__
 
 
 class Rep(ParserBase):
@@ -341,10 +345,28 @@ class Rep(ParserBase):
             full_match = input.text[:(current_input.pos - input.pos)]
             return Success(next=current_input, match=full_match, value=values)
 
+    def __repr__(self):
+        return f"Rep({self._parser}, nmin={self._nmin}, nmax={self._nmax})"
+
+    __str__ = __repr__
+
 
 def Rep1(parser, nmax=None):
     """Repeats a construction at least once."""
     return Rep(parser=parser, nmin=1, nmax=nmax)
+
+
+class Skip(ParserBase):
+    def __init__(self, parser):
+        self._parser = parser
+
+    def Parse(self, input):
+        return self._parser.Parse(input)
+
+    def __repr__(self):
+        return f"Skip({self._parser!r})"
+
+    __str__ = __repr__
 
 
 class Seq(ParserBase):
@@ -359,14 +381,23 @@ class Seq(ParserBase):
         values = []
         for parser in self._parsers:
             assert hasattr(parser, 'Parse'), repr(parser)
+            skip = isinstance(parser, Skip)
             result = parser.Parse(current_input)
             if result.success:
-                values.append(result.value)
+                if not skip:
+                    values.append(result.value)
                 current_input = result.next
             else:
                 return Failure(next=input, message=result.message)
         full_match = input.text[:current_input.pos - input.pos]
+        if len(values) == 1:
+            values = values[0]
         return Success(match=full_match, next=current_input, value=values)
+
+    def __repr__(self):
+        return "Seq({})".format(",".join(map(str, self._parsers)))
+
+    __str__ = __repr__
 
 
 class Branch(ParserBase):
@@ -384,7 +415,7 @@ class Branch(ParserBase):
         return Failure(next=input, message=result.message)
 
     def __repr__(self):
-        return f'Branch({self._parsers})'
+        return 'Branch({})'.format(",".join(map(repr, self._parsers)))
 
     __str__ = __repr__
 
@@ -443,6 +474,10 @@ class Ref(ParserBase):
                                          (self, ))
         return self._ref.Parse(input)
 
+    def __repr__(self):
+        return "Ref({})".format(self._ref.__class__.__name__)
+
+    __str__ = __repr__
 
 # ------------------------------------------------------------------------------
 """Parses a C-style identifier."""

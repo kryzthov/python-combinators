@@ -14,7 +14,7 @@ import parser
 import cl_parser
 
 
-class TestRecordParser(unittest.TestCase):
+class TestParser(unittest.TestCase):
     """Tests for CL parsers."""
 
     def test_empty_record(self):
@@ -68,6 +68,11 @@ class TestRecordParser(unittest.TestCase):
         self.assertEqual({'x': 8}, result.value.export())
 
     def test_if_expr(self):
+        result = cl_parser.Record.Parse(parser.Input('{result = if true then 5 else 10}'))
+        self.assertTrue(result.success)
+        self.assertEqual({'result': 5}, result.value.export())
+
+    def test_if_expr2(self):
         result = cl_parser.Record.Parse(parser.Input('{x = true, y = if x then 5 else 10}'))
         self.assertTrue(result.success)
         self.assertEqual({'x': True, 'y': 5}, result.value.export())
@@ -83,12 +88,16 @@ class TestRecordParser(unittest.TestCase):
             x = {
                 a = 1
                 b = 3*a
+                c = {
+                    d = 9
+                }
             }
             y = x.a
+            z = x.c.d
         }
         """))
         self.assertTrue(result.success)
-        self.assertEqual({'x': {'a': 1, 'b': 3}, 'y': 1}, result.value.export())
+        self.assertEqual({'x': {'a': 1, 'b': 3, 'c': {'d': 9}}, 'y': 1, 'z': 9}, result.value.export())
 
     def test_list(self):
         result = cl_parser.Record.Parse(parser.Input("""
@@ -157,6 +166,49 @@ class TestRecordParser(unittest.TestCase):
         """))
         self.assertTrue(result.success)
         self.assertEqual(89, result.value.get("f10"))
+
+    def test_nested_list_record(self):
+        result = cl_parser.Record.Parse(parser.Input("""
+        {
+            x = {
+                y = [ { z = 1 } ]
+            }
+        }
+        """))
+        self.assertTrue(result.success)
+        self.assertEqual({'x': {'y': [{'z': 1}]}}, result.value.export())
+
+    def test_list_access(self):
+        result = cl_parser.Record.Parse(parser.Input("""
+        {
+            l = [0, 1, 2]
+            i = 1
+            l0 = l[0]
+            li = l[i]
+            lii = l[i + 1]
+        }
+        """))
+        self.assertTrue(result.success)
+        self.assertEqual({'i': 1, 'l': [0, 1, 2], 'l0': 0, 'li': 1, 'lii': 2}, result.value.export())
+
+    def test_matrix(self):
+        result = cl_parser.Record.Parse(parser.Input("""
+        {
+            m = [[1, 2, 3], [10, 20, 30], [100, 200, 300]],
+            m01 = m[0][1]
+            m10 = m[1][0]
+        }
+        """))
+        self.assertTrue(result.success)
+        self.assertEqual(2, result.value.get('m01'))
+        self.assertEqual(10, result.value.get('m10'))
+
+
+    # def test_finulator(self):
+    #     with open('finulator.cl', mode='rt', encoding='utf-8') as f:
+    #         source = f.read()
+    #     result = cl_parser.Record.Parse(parser.Input(source))
+    #     self.assertTrue(result.success, result)
 
 
 def main(args):

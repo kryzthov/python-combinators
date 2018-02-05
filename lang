@@ -1,0 +1,39 @@
+Record ::= { Field* }
+
+Field ::= Ident (: Type)? (= Expr)? (,;)?
+
+Expr ::= BinExpr
+
+If ::= if Expr then Expr else Expr
+
+BinExpr ::= BinExprN
+BinExpr4 ::= BinExpr3 ( (and | or) BinExpr3 )*
+BinExpr3 ::= BinExpr2 ( (== | != | < | > | <= | >=) BinExpr2 )*
+BinExpr2 ::= BinExpr1 ( (+ | -) BinExpr1 )*
+BinExpr1 ::= BinExpr0 ( (* | /) BinExpr0 )*
+BinExpr0 ::= FieldExpr (** FieldExpr)*
+
+Param ::= Ident = Expr
+
+FieldExpr ::= SimpleExpr (
+                           | . Ident
+                           | [ Expr ]
+                           | ( Param (, Param)* ,? )
+                         )*
+
+SimpleExpr ::=
+    | Imm
+    | UnaryExpr
+    | RefExpr
+    | If
+    | Record
+    | ListExpr
+    | ParenExpr
+
+ParenExpr ::= ( Expr )
+ListExpr  ::= [ Expr (, Expr)* ,? ]
+UnaryExpr ::=
+    | not Expr
+    | - Expr
+
+RefExpr ::= Ident

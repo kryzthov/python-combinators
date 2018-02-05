@@ -45,9 +45,25 @@ let Fibo(n) = {
 }
 
 
+federal_tax_brackets = {
+    brackets = [
+        {rate=0.10,  base=0,        max=18650,    capital_gain_rate=0},
+        {rate=0.15,  base=18650,    max=75900,    capital_gain_rate=0},
+        {rate=0.25,  base=10452.50, max=153100,   capital_gain_rate=0.15},
+        {rate=0.28,  base=29752.50, max=233350,   capital_gain_rate=0.15},
+        {rate=0.33,  base=52222.50, max=416700,   capital_gain_rate=0.15},
+        {rate=0.35,  base=112728,   max=470700,   capital_gain_rate=0.15},
+        {rate=0.396, base=131628,   max=math.inf, capital_gain_rate=0.20},
+    ]
+}
 
 rec {
-  l = [1, 2, 3]
+  xs = [1, 2, 3]
+
+  ys = {
+    empty = len(xs) == 0
+    result = if empty then [] else
+  }
 }
 
 
